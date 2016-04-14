@@ -1,5 +1,5 @@
-#ifndef _COUNT_H
-#define _COUNT_H
+#ifndef _EVENTDETECTION_H
+#define _EVENTDETECTION_H
 #include <math.h>
 #include <algorithm>
 #include "../commom/func.h"
@@ -7,17 +7,17 @@
 #include "../textanalysis/keywords.h"
 #define KEYWORDSNUM 4
 typedef std::map<std::string, std::map<std::string,int> >daily_dict;
-namespace text{
+namespace event{
 	//统计算法类
-	class  Count{
+	class  EventDetc{
 	public:
 		commom::Func f;
 		seg::Wordseg mseg;
 		text::Keywords keywd;
-		std::map<std::string, float>idfdict;
+		//std::map<std::string, float>idfdict;
 	public:
-		Count();
-		~Count();
+		EventDetc();
+		~EventDetc();
 		void Init(const char* path);
 		void WordCount(const char* filein, const char* fileout);
 		void WordCountDaily(const char* filein, const char* fileout);
