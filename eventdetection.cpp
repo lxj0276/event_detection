@@ -1,67 +1,10 @@
-#include "count.h"
+#include "eventdetection.h"
 namespace text{
- Count::Count(){}
- Count::~Count(){}
- void Count::Init(const char* path){
-	 std::string dictpath = path;
-	 dictpath += "seg/";
-	 mseg.InitDict(dictpath.c_str());
-	 std::string idfpath = path;
-	 idfpath += "vector/idf";
-	 keywd.Init(idfpath.c_str());
-	 commom::DEBUG_INFO("init ok");
- }
- void Count::WordCount(const char* filein, const char* fileout){
-   //关键词抽取
-	std::map<std::string, int> dict;
-	commom::Func f;
-	FILE*fi = fopen(filein,"r");
-	FILE*fo = fopen(fileout,"ab+");
-	if ((fi == NULL)||(fo == NULL)) {
-		commom::LOG_INFO("open file error");
-		return ;
-	}
-   //关键词词频统计
-	char buffer[MAX_LENTH];		
-	std::string str = "";
-	std::map<std::string, int> v;
-	std::vector<std::string> r ;
-	std::vector<std::pair<std::string,double> > ret;
-	while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
-		str = f.GetLine(buffer); 
-		f.Split("\t", str, r);
-		if(r.size() != 2)continue;
-		str = r.at(0);
-		int k = atoi(r.at(1).c_str())/100;
-		f.Split(" ",mseg.Segement(str.c_str()),v);
-		keywd.IdfKeyWords(ret,v, KEYWORDSNUM);
-		for(std::vector<std::pair<std::string,double> >::iterator it = ret.begin(); 
-			it != ret.end(); it++){
-			//dict[it->first] += k;
-			dict[it->first] += 1;
-		}		
-	 }
-	 fclose(fi);
-	 commom::DEBUG_INFO("count ok");
-	 std::vector<std::pair<std::string,int> > temp;
-	 for(std::map<std::string, int>::iterator bt = dict.begin(); bt!= dict.end(); bt++){
-		 temp.push_back(*bt);
-	 }
-	 sort(temp.begin(), temp.end(),f.SortBySecondGreater);
-	 for(std::vector<std::pair<std::string,int> >::iterator bt = temp.begin(); bt!= temp.end(); bt++){
-		 f.WiteLine((bt->first + "\t" + f.ConvertToStr(bt->second) + "\n").c_str(), fo);
-	 }
-	 fclose(fo);
- }
- void Count::WordCountDaily(const char* filein, const char* fileout){
-	 //定义数据结构
-	 daily_dict m_dict;
-	 std::map<std::string, int>dailylist;
-	 std::map<std::string, int> dict;
-	 commom::Func f;
-	 FILE*fi = fopen(filein,"r");
-	 FILE*fo = fopen(fileout,"ab+");
-	 if ((fi == NULL)||(fo == NULL)) {
+ EventDetc::EventDetc(){}
+ EventDetc::~EventDetc(){}
+ void EventDetc::Init(const char* path){
+	 FILE*fi = fopen(path,"r");
+	 if (fi == NULL) {
 		 commom::LOG_INFO("open file error");
 		 return ;
 	 }
@@ -73,95 +16,154 @@ namespace text{
 	 while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
 		 str = f.GetLine(buffer); 
 		 f.Split("\t", str, r);
-		 if(r.size() != 7)continue;
-		 str = r.at(4);
-		 std::string date = r.at(6);
-		 dict[date]++;
-		 //commom::DEBUG_INFO(mseg.Segement(str.c_str()));
-		 f.Split(" ",mseg.Segement(str.c_str()),v);
-		 //commom::DEBUG_INFO(f.ConvertToStr(v.size()));
-		 for(std::map<std::string, int>::iterator it = v.begin(); it!= v.end(); it++){
-			 m_dict[it->first][date]++;
+		 if(r.size() != 31)continue;
+		 str = r.at(0);
+		 int k = 0;
+		 for(int i =1; i< r.size(); i++){
+			k += atoi(r.at(i).c_str());
 		 }
-		  /*
-		 keywd.IdfKeyWords(ret,v, KEYWORDSNUM);
-		 for(std::vector<std::pair<std::string,double> >::iterator it = ret.begin(); 
-			 it != ret.end(); it++){
-				 //dict[it->first] += k;
-				 dict[it->first] += 1;
-		 }		
-		 */
+		 k /= 30;
+		 worddict[str].eve = k;
+		 worddict[str].inc = 0;
+		 worddict[str].range = 0;
+		 for(int t =0; t< SAVEDATE; t++){
+			 worddict[str].pv.push(k);
+		 }
+	 }
+	 commom::DEBUG_INFO("init ok");
+	 fclose(fi);
+ }
+ void EventDetc::WordCountDaily(const char* filein, int k){
+	 dailycount.clear();
+	 FILE*fi = fopen(filein,"r");
+	 if (fi == NULL) {
+		 commom::LOG_INFO("open file error");
+		 return ;
+	 }
+	 char buffer[MAX_LENTH];		
+	 std::string str = "";
+	 std::vector<std::string> r ;
+	 // float totalwordsnum = 0.0;
+	 // std::vector<std::string> wds;
+	 while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
+		 str = f.GetLine(buffer); 
+		 f.Split("\t", str, r);
+		 if(r.size() != 31)continue;
+		 str = r.at(0);
+		 dailycount[str] = atof(r.at(k).c_str());
+		 //wds.push_back(str);
+		 //totalwordsnum += atof(r.at(k).c_str());
 	 }
 	 fclose(fi);
-	 commom::DEBUG_INFO("count ok");
-	 commom::DEBUG_INFO(f.ConvertToStr(m_dict.size()));
 	 /*
-	 std::vector<std::pair<std::string,int> > temp;
-	 for(std::map<std::string, int>::iterator bt = dict.begin(); bt!= dict.end(); bt++){
-		 temp.push_back(*bt);
-	 }
-	 sort(temp.begin(), temp.end(),f.SortBySecondGreater);
-	
-	 for(std::vector<std::pair<std::string,int> >::iterator bt = temp.begin(); bt!= temp.end(); bt++){
-		 f.WiteLine((bt->first + "\t" + f.ConvertToStr(bt->second) + "\n").c_str(), fo);
+	 for(std::vector<std::string>::iterator it = wds.begin(); it != wds.end(); it++){
+		 dailycount[*it] /= totalwordsnum;
+		 commom::DEBUG_INFO(*it);
+		 commom::DEBUG_INFO(f.ConvertToStr(dailycount[*it]));
 	 }
 	 */
-	 for(daily_dict::iterator it =m_dict.begin(); it != m_dict.end(); it++){
-		 std::string linestr = it->first;
-		 int totalnum = 0;
-		 for(std::map<std::string, int>::iterator bt = dict.begin(); bt != dict.end(); bt++){
-			linestr += ("\t" + f.ConvertToStr(m_dict[it->first][bt->first]));
-			totalnum += m_dict[it->first][bt->first];
+
+ }
+
+ void EventDetc::GetDailyHotWords(){
+	 for(daily_dict::iterator it = worddict.begin(); it != worddict.end(); it++){
+		 //analysis
+		 std::string wd = it->first;
+		 int dpv = dailycount[wd];
+		 //计算抖动性
+		 float alpha = (it->second.range - it->second.inc)/(SAVEDATE + 0.1);
+		 //计算热度
+		 float beta = (dpv- it->second.eve)/(it->second.eve + alpha);
+		 dailyhot[wd] = beta;
+		 
+		 //updata
+		 it->second.pv.pop();
+		 it->second.pv.push(dpv);
+		 it->second.eve = 0;
+		 for(int i =0; i < SAVEDATE; i++){
+			 int temp = it->second.pv.front();
+			 it->second.eve += temp;
+			 it->second.pv.pop();
+			 it->second.pv.push(temp);
 		 }
-		 linestr += "\n";
-		 if(totalnum > 1000){
-			f.WiteLine(linestr.c_str(), fo);
-		 }		
+		 it->second.eve /= SAVEDATE;
+		 it->second.inc = it->second.pv.back() - it->second.pv.front();
+		 it->second.range = 0;
+		 for(int i =0; i < SAVEDATE; i++){
+			 int temp = it->second.pv.front();
+			 it->second.range += abs(temp-it->second.eve);
+			 it->second.pv.pop();
+			 it->second.pv.push(temp);
+		 }
 	 }
-	 fclose(fo);
+ }	
+
+ void EventDetc::ShowDailyHotWords(const char* filein, const char* outpath){
+	 FILE*fo = fopen(outpath,"ab+");
+	 for(int i = 1; i < 31; i++){
+		 dailyhot.clear();
+		 WordCountDaily(filein, i);
+		 //commom::DEBUG_INFO("WordCountDaily ok");
+		 GetDailyHotWords();
+		 //commom::DEBUG_INFO("GetDailyHotWords ok");
+		 //sort
+		 std::vector<std::pair<std::string,float> > temp;
+		 for(std::map<std::string, float>::iterator it =dailyhot.begin(); 
+			 it != dailyhot.end(); it++){
+			 temp.push_back(*it);
+		 }
+		 sort(temp.begin(),temp.end(),f.SortBySecondGreater);
+		 std::string str = f.ConvertToStr(i) + "day : \n";
+		 for(int j =0; j< 20; j++){
+			 str += ("\t" + temp.at(j).first);
+		 }
+		 str += "\n";
+		 f.WiteLine(str.c_str(), fo);
+	 }
+  }
+ void EventDetc::Event(){
+	 //count
+	 std::map<std::string, int> strint;
+	 std::map<int, std::string> intstr;
+	 int i = 0;
+	 for(std::map<std::string, float>::iterator it = dailycount.begin(); it != dailycount.end(); it++){
+		 strint[it->first] = i++;
+		 intstr[i-1] = it->first;
+	 }
+	 distance = new float*[i];
+	 for(int j =0; j < i; j++){
+		 distance[j] = new float[i];
+	 }
+	 //
+	 std::vector<std::string >  temp;
+	 temp.push_back(intstr[0]);
+	 hotevent.push_back(temp);
+	 for(int j = 1; j < i; j++){
+
+
+	 }
+
+
+
  }
- void Count::SentenceCount(const char* filein, const char* fileout){
-	 //关键词抽取
-	 std::map<std::string, int> dict;
-	 commom::Func f;
-	 FILE*fi = fopen(filein,"r");
-	 FILE*fo = fopen(fileout,"ab+");
-	 if ((fi == NULL)||(fo == NULL)) {
-		 commom::LOG_INFO("open file error");
-		 return ;
+
+ float EventDetc::CountRo(std::string& stra, std::string& strb){
+	 for(int i =0; i < SAVEDATE; i++){
+		 int temp = it->second.pv.front();
+		 it->second.range += abs(temp-it->second.eve);
+		 it->second.pv.pop();
+		 it->second.pv.push(temp);
 	 }
-	 //关键词词频统计
-	 char buffer[MAX_LENTH];		
-	 std::string str = "";
-	 std::map<std::string, int> v;
-	 std::vector<std::string> r ;
-	 std::vector<std::pair<std::string,double> > ret;
-	 while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
-		 str = f.GetLine(buffer); 
-		 f.Split("\t", str, r);
-		 if(r.size() != 2)continue;
-		 str = r.at(0);
-		 int k = atoi(r.at(1).c_str())/100;
-		 f.Split(" ",mseg.Segement(str.c_str()),v);
-		 keywd.IdfKeyWords(ret,v, KEYWORDSNUM-1);
-		 str = "";
-		 for(std::vector<std::pair<std::string,double> >::iterator it = ret.begin(); 
-			 it != ret.end(); it++){
-			 str +=  it->first;
-		 }		
-		 //dict[str] += k;
-		 dict[str] += 1;
-	 }
-	 fclose(fi);
-	 commom::DEBUG_INFO("count ok");
-	 std::vector<std::pair<std::string,int> > temp;
-	 for(std::map<std::string, int>::iterator bt = dict.begin(); bt!= dict.end(); bt++){
-		 temp.push_back(*bt);
-	 }
-	 sort(temp.begin(), temp.end(),f.SortBySecondGreater);
-	 for(std::vector<std::pair<std::string,int> >::iterator bt = temp.begin(); bt!= temp.end(); bt++){
-		 f.WiteLine((bt->first + "\t" + f.ConvertToStr(bt->second) + "\n").c_str(), fo);
-	 }
-	 fclose(fo);
+
+
+
+
+	 float cxy
+
+
+
  }
+  
+
+
 }

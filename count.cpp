@@ -30,15 +30,15 @@ namespace text{
 	while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
 		str = f.GetLine(buffer); 
 		f.Split("\t", str, r);
-		if(r.size() != 2)continue;
+		if(r.size() != 8)continue;
 		str = r.at(0);
-		int k = atoi(r.at(1).c_str())/100;
+		int k = atoi(r.at(5).c_str());
 		f.Split(" ",mseg.Segement(str.c_str()),v);
 		keywd.IdfKeyWords(ret,v, KEYWORDSNUM);
 		for(std::vector<std::pair<std::string,double> >::iterator it = ret.begin(); 
 			it != ret.end(); it++){
-			//dict[it->first] += k;
-			dict[it->first] += 1;
+			dict[it->first] += k;
+			//dict[it->first] += 1;
 		}		
 	 }
 	 fclose(fi);
@@ -73,15 +73,16 @@ namespace text{
 	 while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
 		 str = f.GetLine(buffer); 
 		 f.Split("\t", str, r);
-		 if(r.size() != 7)continue;
+		 if(r.size() != 8)continue;
 		 str = r.at(4);
-		 std::string date = r.at(6);
+		 std::string date = r.at(7);
 		 dict[date]++;
+		 int k = atoi(r.at(5).c_str())/10000;
 		 //commom::DEBUG_INFO(mseg.Segement(str.c_str()));
 		 f.Split(" ",mseg.Segement(str.c_str()),v);
 		 //commom::DEBUG_INFO(f.ConvertToStr(v.size()));
 		 for(std::map<std::string, int>::iterator it = v.begin(); it!= v.end(); it++){
-			 m_dict[it->first][date]++;
+			 m_dict[it->first][date] += k;
 		 }
 		  /*
 		 keywd.IdfKeyWords(ret,v, KEYWORDSNUM);
@@ -114,7 +115,7 @@ namespace text{
 			totalnum += m_dict[it->first][bt->first];
 		 }
 		 linestr += "\n";
-		 if(totalnum > 1000){
+		 if(totalnum > 100){
 			f.WiteLine(linestr.c_str(), fo);
 		 }		
 	 }
