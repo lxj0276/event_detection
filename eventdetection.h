@@ -5,10 +5,13 @@
 #include <algorithm>
 #include <queue>
 #include "../commom/func.h"
+#define HOTWORDSNUM 20
 #define KEYWORDSNUM 4
 #define SAVEDATE 7
+#define ALPHA 0.9
 typedef struct{
-	std::queue<int> pv;
+	//std::priority_queue<int> pv;
+	int pv[SAVEDATE];
 	float eve;
 	float range;
 	float inc;
