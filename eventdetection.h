@@ -10,13 +10,13 @@
 #define SAVEDATE 7
 #define ALPHA 0.9
 typedef struct{
-	//std::priority_queue<int> pv;
 	int pv[SAVEDATE];
 	float eve;
 	float range;
 	float inc;
 } node; 
 typedef std::map<std::string, node>daily_dict;
+
 namespace text{
 	//统计算法类
 	class  EventDetc{
