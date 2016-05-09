@@ -9,6 +9,7 @@
 #define BEGINDATA 20160207
 #define HOTWORDSNUM 20
 #define HOTWORDSNUMBIG 100
+#define HOTARTICLE 30
 #define KEYWORDSNUM 4
 #define SAVEDATE 7
 #define ALPHA 0.9
@@ -36,15 +37,23 @@ namespace text{
 	class  EventDetc{
 	public:
 		commom::Func f;
+		//事件发现
 		daily_dict worddict;
 		std::map<std::string, float> dailycount;
 		std::map<std::string, float> dailyhot;	
+		std::map<std::string, float> eventsres;
+		std::vector<std::pair<string, float> > dailyhotarticle;
 		std::map<std::string, float> dailyhotbig;	
 		std::vector<std::vector<std::string> > hotevent;
 		float** distance;
 		seg::Wordseg mseg;
 		tree_node* root;	
 		std::map<string, int> stopwd;
+
+		//事件跟踪
+		bool EventTracking(string& str);
+
+
 	public:
 		EventDetc();
 		~EventDetc();
@@ -52,11 +61,12 @@ namespace text{
 		void WordCountDaily(const char* filepath, int k);
 		void GetDailyHotWords();	
 		void ShowDailyHotWords(const char* filein, const char* outpath);
-		void Event(tree_node* root);
-		float CountRo(std::string& stra, std::string& strb);
+		void Event(tree_node* root, std::map<std::string, float>& eventsres);
+		//float CountRo(std::string& stra, std::string& strb);
 		bool Insert(std::vector<std::string>& r, int k);
 		bool DeleteNode(tree_node* node);
 		void Erase(std::vector<std::string>& r);
+		void FindhotArticle(string& str);
 	private:
 		void FreeTree();
 	};
