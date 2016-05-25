@@ -2,26 +2,25 @@
 namespace text{
   EventDetc::EventDetc(){
 	 root = NULL;
-	 //root = new tree_node;
  }
   EventDetc::~EventDetc(){
 	 if( root != NULL){
 		 FreeTree();	
 	 }
  }
- //初始化，20160207 - 20160213
+
   void EventDetc::Init(const char* dictpath, const char* path, const char* stoppath){
 	 mseg.InitDict(dictpath);
 	 for(int i =0; i< SAVEDATE; ++i){
 		 string filepath = path + f.ConvertToStr(BEGINDATA + i);
 		 FILE*fi = fopen(filepath.c_str(),"r");
 		 if (fi == NULL) {
-			 commom::LOG_INFO("open file error");
+			 commom::LOG_INFO("open file error" + filepath);
 			 return ;
 		 }
 		 char buffer[MAX_LENTH];		
 		 std::string str = "";
-		 std::map<std::string, int> v;
+		 std::map<std::string, double> v;
 		 std::vector<std::string> r ;
 		 std::vector<std::pair<std::string,double> > ret;
 		 while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
@@ -29,11 +28,11 @@ namespace text{
 			 f.Split("\t", str, r);
 			 if(r.size() != 8)continue;
 			 str = r.at(4);
-			 int k = atoi(r.at(5).c_str());
+			 double k = atof(r.at(5).c_str())/10000.01;
+			 if(k <= 0 )continue;
 			 f.Brackets(str);
 			 f.Split(" ",mseg.Segement(str.c_str()),r);
 			 Erase(r);
-			 //commom::DEBUG_INFO(mseg.Segement(str.c_str()));
 			 for(int j =0; j< r.size(); j++){
 				 if((worddict.find(r.at(j)) == worddict.end())&&(i)){
 					for(int t = 0; t < i; t++){
@@ -67,7 +66,7 @@ namespace text{
 	 //load stop words
 	 FILE*fi = fopen(stoppath,"r");
 	 if (fi == NULL) {
-		 commom::LOG_INFO("open file error");
+		 commom::LOG_INFO("open file error" + string(stoppath));
 		 return ;
 	 }
 	 std::string str = "";
@@ -77,45 +76,61 @@ namespace text{
 		 str = f.GetLine(buffer); 
 		 stopwd[str]++;
 	 }
-
+	 commom::DEBUG_INFO("INIT_SECUSS");
  }
   void EventDetc::Erase(std::vector<std::string>& r){
 	 for(std::vector<std::string>::iterator it = r.begin(); it != r.end();){
 		if(stopwd.find(*it) != stopwd.end()){
+			it = r.erase(it);
+		}else if((*it).size() < 4){
 			it = r.erase(it);
 		}else{
 			it++;
 		}
 	 }
   }
-  void EventDetc::WordCountDaily(const char* filepath, int k){
+  bool comp(const articleinfo& x, const articleinfo& y){
+	  return x.score > y.score;
+  }
+
+  void EventDetc::WordCountDaily(const char* filepath, int d){
+	 //将每日统计数据写入本地文件
 	 dailycount.clear();
 	 dailyhotarticle.clear();
 	 root = new tree_node;
-	 string filein = filepath + f.ConvertToStr(BEGINDATA + k);
+	 string filein = filepath + f.ConvertToStr(BEGINDATA + d);
 	 FILE*fi = fopen(filein.c_str(),"r");
+	 string logpath = LOGPATH + f.ConvertToStr(BEGINDATA + d) + "word";
+	 FILE*fo = fopen(logpath.c_str(),"ab+");
 	 if (fi == NULL) {
-		 commom::LOG_INFO("open file error");
+		 commom::LOG_INFO("open file error" + logpath);
 		 return ;
 	 }
 	 char buffer[MAX_LENTH];		
 	 std::string str = "";
 	 std::vector<std::string> r ;
+	 articleinfo tmp;
 	 while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL)	{
 		 str = f.GetLine(buffer); 
 		 f.Split("\t", str, r);
+		 
 		 if(r.size() != 8)continue;
+		 tmp.url = r.at(6);
 		 str = r.at(4);
-		 k = atoi(r.at(5).c_str());
+		 double k = atof(r.at(5).c_str())/10000.01;
+		 tmp.str = str;
+		 tmp.score = k;
+		 
+		 if(k <= 0 )continue;
 		 if(dailyhotarticle.size() < HOTARTICLE){
-			 //test
-			 dailyhotarticle.push_back(std::pair<string, float>(str, k));
-			 sort(dailyhotarticle.begin(), dailyhotarticle.end(), f.SortBySecondLess);
+			 dailyhotarticle.push_back(tmp);
+			 sort(dailyhotarticle.begin(), dailyhotarticle.end(), comp);
 		 }else{
-			 if(k > dailyhotarticle.at(0).second){
-				dailyhotarticle.at(0).first = str;
-				dailyhotarticle.at(0).second = k;
-				sort(dailyhotarticle.begin(), dailyhotarticle.end(), f.SortBySecondLess);
+			 if(k > dailyhotarticle.at(0).score){
+				dailyhotarticle.at(0).str = tmp.str;
+				dailyhotarticle.at(0).score = tmp.score;
+				dailyhotarticle.at(0).url = tmp.url;
+				sort(dailyhotarticle.begin(), dailyhotarticle.end(), comp);
 			 }
 		 }
 		 f.Brackets(str);
@@ -128,20 +143,34 @@ namespace text{
 		 Insert(r,k);
 	 }
 	 fclose(fi);
+	 //统计每日词频
+	 str = "";
+	 for(std::map<std::string, double>::iterator it = dailycount.begin(); it != dailycount.end(); it++){
+		 if(it->second < 1){
+			 continue;
+		 }
+		 for(double x = 0; x < it->second; x++){
+			 str += (it->first + " ");
+		 }
+		 str += "\n";
+		 f.WiteLine(str.c_str(), fo);
+		 str = "";
+	 }
+	 fclose(fo);
  }
 
-  void EventDetc::GetDailyHotWords(){
+  void EventDetc::GetDailyHotWords(int x){
 	 for(daily_dict::iterator it = worddict.begin(); it != worddict.end(); it++){
 		 //analysis
 		 std::string wd = it->first;
-		 int dpv = dailycount[wd];
+		 double dpv = dailycount[wd];
 		 //TODO 前面为0
 		 //计算抖动性
-		 float alpha = (it->second.range - it->second.inc)/(SAVEDATE + 0.1);
+		 double alpha = (it->second.range - it->second.inc)/(SAVEDATE + 0.1);
 		 //计算热度
-		 float beta = (dpv- it->second.eve)/(1 + it->second.eve + alpha);
-		 if(beta > 20){
-			 beta = 20;
+		 double beta = (dpv- it->second.eve)/(1 + it->second.eve + alpha);
+		 if(beta > 50){
+			 beta = 50;
 		 }
 		 beta *= dpv;
 		 dailyhot[wd] = beta;
@@ -163,24 +192,42 @@ namespace text{
 			 it->second.range += abs(it->second.pv[i]-it->second.eve);
 		 }
 	 }
+	 //log 每日hot词 
+	 string logpath = LOGPATH + f.ConvertToStr(BEGINDATA + x) + "hot";
+	 FILE*fo = fopen(logpath.c_str(),"ab+");
+	 string str = "";
+	 for(std::map<std::string, double>::iterator it = dailyhot.begin(); it != dailyhot.end(); it++){
+		 if(it->second < 1){
+			 continue;
+		 }
+		 for(double x = 0; x < (it->second); x++){
+			 str += (it->first + " ");
+		 }
+		 str += "\n";
+		 f.WiteLine(str.c_str(), fo);
+		 str = "";
+	 }
+	 fclose(fo);
+
  }	
 
   void EventDetc::ShowDailyHotWords(const char* filein, const char* outpath){
 	 FILE*fo = fopen(outpath,"ab+");
-	 for(int i = 7; i < 23; i++){
+	 for(int i = 7; i < 29; i++){
 		 dailyhot.clear();
 		 dailyhotbig.clear();
 		 eventsres.clear();
 		 WordCountDaily(filein, i);//得到每日词频统计
-		 GetDailyHotWords();
+		 GetDailyHotWords(i);
 		 //sort
 		 std::vector<std::pair<std::string,float> > temp;
-		 for(std::map<std::string, float>::iterator it =dailyhot.begin(); 
+		 for(std::map<std::string, double>::iterator it =dailyhot.begin(); 
 			 it != dailyhot.end(); it++){
 			 temp.push_back(*it);
 		 }
 		 sort(temp.begin(),temp.end(),f.SortBySecondGreater);
-		 std::string str = f.ConvertToStr(i) + "day : \n";
+		 std::string str = f.ConvertToStr(i + 20160201) + "\n";
+		 str += "keywords: ";
 		 for(int j =0; j< HOTWORDSNUM; j++){
 			 str += ("\t" + temp.at(j).first);
 		 }
@@ -194,34 +241,49 @@ namespace text{
 		 }
 		 Event(root,eventsres);
 		 string hotstr = "";
-
-		 FindhotArticle(hotstr);
-		 commom::DEBUG_INFO(hotstr);
+		 str += "EVENT	:";
+		 std::vector<std::pair<string,float> >tmp;
+		 for(std::map<std::string, double>::iterator it = eventsres.begin(); it != eventsres.end(); it++){
+			 //str += (it->first + " " + f.ConvertToStr(it->second) + "\t");
+			 tmp.push_back(*it);
+		 }
+		 sort(tmp.begin(), tmp.end(),f.SortBySecondGreater);
+		 for(int l = 0; l < tmp.size(); l++){
+			 str += (tmp.at(l).first + "\001" + f.ConvertToStr(tmp.at(l).second) + "\t");
+		 }
+		 str += "\n";
+		 std::vector<articleinfo>arts;
+		 FindhotArticle(arts,hotstr);
+		 sort(arts.begin(), arts.end(),comp);
+		 str += "ARTICLE :";
+		 int num = arts.size() < 10 ? arts.size():10;
+		 for(int jj = 0; jj < num; jj++){
+			 str += (arts.at(jj).str + " " + f.ConvertToStr(arts.at(jj).score) + " " + arts.at(jj).url + "\t");
+		 }
+		 //str += hotstr;
+		 str += "\n";
 		 FreeTree();
-		 commom::DEBUG_INFO("free ok");
 		 f.WiteLine(str.c_str(), fo);
-		 commom::DEBUG_INFO("wrrite ok");
 	 }
   }
-  bool Compare(const std::pair<int, float>& x, 
-	 const std::pair<int, float>& y ){
-		 return x.second > y.second;
-  }
-  void EventDetc::Event(tree_node* root, std::map<std::string, float>& eventsres){
+
+  //TODO 热度分级，
+  void EventDetc::Event(tree_node* root, std::map<std::string, double>& eventsres){
 	 //事件发现
-	 std::vector< std::vector<std::pair<string, size_t> > > eventlist;
-	 for(std::map<std::string, float>::iterator it = dailyhot.begin(); it != dailyhot.end(); it++){
+	 std::vector< std::vector<std::pair<string, double> > > eventlist;
+	 for(std::map<std::string, double>::iterator it = dailyhot.begin(); it != dailyhot.end(); it++){
 		 //遍历开始词
 		 tree_node* p = root;
 		 bool flag = true;
-		 std::vector<std::pair<string, size_t> > v;
+		 std::vector<std::pair<string, double> > v;
 		 if(p->childlist.find(it->first) != p->childlist.end()){
 			 p = p->childlist[it->first];
-			 v.push_back(std::pair<string, size_t>(it->first, p->freq));
+			 //commom::DEBUG_INFO(it->first + f.ConvertToStr(p->freq));
+			 v.push_back(std::pair<string, double>(it->first, p->freq));
 			 //第一个词
 			 while(flag){//循环寻找
 				 flag = false;
-				 size_t num = 0;
+				 double num = 0;
 				 string str = "";
 				 for(std::map<string, tree_node* >:: iterator bt = p->childlist.begin();
 					 bt != p->childlist.end(); bt++){
@@ -234,109 +296,77 @@ namespace text{
 					 }
 				 }
 				 if(flag){
-					v.push_back(std::pair<string, size_t>(str, num));
+					v.push_back(std::pair<string, double>(str, num));
 					p = p->childlist[str];
 				 }
 			 }
 			 eventlist.push_back(v);
 		   }
-		}
-	 float _MIN = 100000000;
+	 }
+	 commom::DEBUG_INFO(f.ConvertToStr(eventlist.size()));
 	 for(int j = 0; j< eventlist.size(); j++){
-		 float score = 1;
+		 double score = 0;
 		 string sstr = "";
-		 for(int k =0; k<eventlist.at(j).size(); k++){
+		 for(double k =0; k<eventlist.at(j).size(); k++){
 			 sstr += (eventlist.at(j).at(k).first + " ");
-			 score *= eventlist.at(j).at(k).second;
+			 score += (eventlist.at(j).at(k).second);
 		     if(k == 2){
 				 break;
 			 }
 		 }
-		 score /= _MIN;
-		 score /= _MIN;
-		 if(score >= 1){
-			 eventsres[sstr] = score;
-			 sstr += f.ConvertToStr(score);
-			 std::cout<<sstr<<std::endl;
-		 }
+		 eventsres[sstr] = score;
+		 sstr += f.ConvertToStr(score);
 	 }	
   }
-  void EventDetc::FindhotArticle(string& str){
+  void EventDetc::FindhotArticle(std::vector<articleinfo>& arts,string& str){
 	  string article = "";
-	  float score = 0.0;
+	  double score = 0.0;
 	  std::map<string, int> r;
 	  std::vector<string> v;
 	  if(dailyhotarticle.size() == 0){
 		  commom::DEBUG_INFO("no hot article");
 	  }
-	  for(std::vector<std::pair<string, float> >::iterator it = dailyhotarticle.begin();
-		  it != dailyhotarticle.end(); it++){
-		  //commom::DEBUG_INFO(it->first);
-		  float _score = 0.0;
-		  str = it->first;
+	  articleinfo tp;
+	  for(std::vector<articleinfo>::iterator it = dailyhotarticle.begin();
+				  it != dailyhotarticle.end(); it++){
+		  double _score = 0.0;
+		  str = it->str;
 		  f.Brackets(str);
 		  f.Split(" ",mseg.Segement(str.c_str()),r);
-		  std::map<string, float>dict;
-		  for(std::map<std::string, float>::iterator bt =  eventsres.begin(); bt != eventsres.end(); bt++){
+		  std::map<string, double>dict;
+		  for(std::map<std::string, double>::iterator bt =  eventsres.begin(); bt != eventsres.end(); bt++){
 			  f.Split(" ",bt->first,v);
+			  if(v.size() < 2) continue;
 			  for(int i = 0; i < v.size(); i++){
-				  //取最热两个词
 				  if(r[v.at(i)] > 0){
 					  dict[v.at(i)] += bt->second;		
 				  }				  		
 			  }
 		  }
-		  //取dict 里值最大的两
 		  std::vector<std::pair<string, float> >temp;
-		  for(std::map<string, float>::iterator tt = dict.begin(); tt != dict.end(); tt++){
+		  for(std::map<string, double>::iterator tt = dict.begin(); tt != dict.end(); tt++){
 			  temp.push_back(*tt);
 		  }
 		  sort(temp.begin(), temp.end(), f.SortBySecondGreater);
-		  for(int q = 0; q < temp.size(); q++){
+		  for(double q = 0; q < temp.size(); q++){
 			  if(q == 2){
 				  break;
 			  }
-			  _score += (it->second)*temp.at(q).second;
+			  _score += ((it->score)*temp.at(q).second)/10000;
 		  }
-		  //commom::DEBUG_INFO(f.ConvertToStr(_score));
+		  tp.str = it->str;
+		  tp.url = it->url;
+		  tp.score = _score;
+		  arts.push_back(tp);
 		  if(_score > score){
-			  article = it->first;
+			  article = it->str;
 			  score = _score;
-		  }		 
+		  }	
 	  }
-	  str = article;
+	  str = article + "\t" + f.ConvertToStr(score);
   }
 
-  /*
-  float EventDetc::CountRo(std::string& stra, std::string& strb){
-	 float cgmxy = 0.0;
-	 float cgmx = 0.0;
-	 float cgmy = 0.0;
-	 float cgmx2 = 0.0;
-	 float cgmy2 = 0.0;
-	 std::string as = "";
-	 std::string bs = "";
-	 for(int i =0; i < SAVEDATE; i++){
-		 int tempa = worddict[stra].pv[i];
-		 int tempb = worddict[strb].pv[i];
-		 as +=(f.ConvertToStr(tempa) + " ");
-		 bs +=(f.ConvertToStr(tempb) + " ");
-		 cgmx += tempa;
-		 cgmy += tempb;
-		 cgmxy += tempa*tempb;
-		 cgmx2 += tempa*tempa;
-		 cgmy2 += tempb*tempb;
-	 }
-	 float ro = SAVEDATE*cgmxy - cgmx*cgmy;
-	 ro /= sqrt((SAVEDATE*cgmx2 - pow(cgmx,2))*(SAVEDATE*cgmy2 - pow(cgmy,2)));
-
-	 commom::DEBUG_INFO(stra + " " + strb + ":" + f.ConvertToStr(ro));
-	 commom::DEBUG_INFO(as);
-	 commom::DEBUG_INFO(bs);
-	 return ro;
-  }
-  */
-  bool EventDetc::Insert(std::vector<std::string>& r, int k){
+  bool EventDetc::Insert(std::vector<std::string>& r, double k){
 	 for(int i =0; i< r.size(); i++){
 	   tree_node* p =root; 
 	   for(int j =i; j< r.size(); j++){
@@ -379,5 +409,84 @@ namespace text{
 	  }
 	  root = NULL; 
   }	
+
+
+
+  //事件跟踪
+  bool EventDetc::EventTracking(const char* filein, const char* datadir, const char* outpath){
+	  FILE*fi = fopen(filein,"r");
+	  if (fi == NULL) {
+		  commom::LOG_INFO("open file error" + string(filein));
+		  return false;
+	  }
+	  char buffer[MAX_LENTH];		
+	  std::string str = "";
+	  std::vector<std::string> v ;
+	  while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL){		  
+		  str = f.GetLine(buffer); 
+		  commom::DEBUG_INFO(str);
+		  EventCount(str, datadir, outpath);
+	  }
+	  fclose(fi);
+	  return true;
+  }
+
+  bool EventDetc::EventCount(string& keywd, const char* datadir, const char* outpath){
+	  dailypv.clear();
+	  std::vector<std::string> r ;
+	  f.Split(" ", keywd, r);
+	  std::pair<double, double>pv;
+	  commom::DEBUG_INFO(f.ConvertToStr(r.size()));
+	  for(int i = 0; i < 29; i++){		  
+		  string filein = datadir + f.ConvertToStr(BEGINDATA + i);
+		  FILE*fi = fopen(filein.c_str(),"r");
+		  if (fi == NULL) {
+			  commom::LOG_INFO("open file error" + string(filein));
+			  return false;
+		  }
+		  char buffer[MAX_LENTH];		
+		  std::string str = "";
+		  std::vector<std::string> v ;		  
+		  while ( f.ReadLine(buffer,MAX_LENTH,fi)!=NULL){
+			  str = f.GetLine(buffer); 
+			  f.Split("\t", str, v);
+			  if(v.size() != 8)continue;
+			  str = v.at(4);
+			  double k = atof(v.at(5).c_str())/10000.01;
+			  if(k <= 0 )continue;
+			  f.Split(" ",mseg.Segement(str.c_str()),v);
+			  //判断是否为相关文章
+			  int flag = 0;
+			  for(int j = 0; j < r.size(); j++){
+				  for(int t = 0; t < v.size(); t++){
+					  if(v.at(t) == r.at(j)){
+						  flag++;
+					  }
+				  }
+			  }
+			  if(flag > 2){
+				pv.first += 1;
+				pv.second += k;
+			  }
+		  }
+		  fclose(fi);
+		  dailypv.push_back(pv); 
+	  }
+	  FILE*fo = fopen(outpath,"ab+");
+	  string str = keywd;  
+	  for(std::vector<std::pair<double, double> >::iterator it= dailypv.begin(); it != dailypv.end(); it++){
+		  str +=(" " + f.ConvertToStr(it->first));
+	  }
+	  str += "\n";
+	  str += keywd;
+	  for(std::vector<std::pair<double, double> >::iterator it= dailypv.begin(); it != dailypv.end(); it++){
+		  str +=(" " + f.ConvertToStr(it->second));
+	  }
+	  str += "\n";
+	  f.WiteLine(str.c_str(), fo);	 
+	  fclose(fo);
+	  return true;
+  }
+  
 }
  
